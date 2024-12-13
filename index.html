@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>维吉尼亚密码工具</title>
+    <style>
+        /* ========== 页面整体风格 ========== */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: linear-gradient(120deg, #f0f4ff, #ffffff);
+            color: #333;
+        }
+
+        .main-container {
+            display: flex;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* 左侧操作区：加宽一些，避免换行过早 */
+        .left-panel {
+            flex: 0 0 250px; /* 固定最小宽度为500px */
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 右侧表格区 */
+        .right-panel {
+            flex: 1 1 auto;
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            margin-top: 0;
+            text-align: center;
+        }
+
+        /* ========== 表单和输入 ========== */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: inline-block;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+        #text, #key {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        /* ========== 按钮组 ========== */
+        .button-group {
+            margin: 10px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .button-group button {
+            background-color: #5271ff;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .button-group button:hover {
+            background-color: #3c5ccf;
+        }
+
+        /* ========== 文本输出区 ========== */
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        #result {
+            height: 60px;
+        }
+        #logArea {
+            height: 100px;
+            margin-top: 10px;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+
+        /* ========== 维吉尼亚字母表 ========== */
+        .table-container {
+            overflow-x: auto; /* 横向滚动以适配移动端 */
+            box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        table {
+            border-collapse: collapse;
+            margin: 0 auto;
+            width: max-content;
+            min-width: 550px;
+        }
+        table, th, td {
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+        th, td {
+            width: 30px;
+            height: 30px;
+            position: relative; /* 放置 tooltip */
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .highlight-row {
+            background-color: #cce5ff; /* 浅蓝 */
+        }
+        .highlight-col {
+            background-color: #d4edda; /* 浅绿 */
+        }
+        .highlight-intersection {
+            background-color: yellow !important;
+        }
+
+        /* ========== Tooltip ========== */
+        .tooltip {
+            visibility: hidden;
+            background-color: #444;
+            color: #fff;
+            text-align: center;
+            border-radius: 4px;
+            padding: 2px 6px;
+            position: absolute;
+            z-index: 9999;
+            font-size: 12px;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        td:hover .tooltip,
+        th:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        .cell-content {
+            display: inline-block;
+            width: 100%;
+            height: 100%;
+        }
+        .cell-content:hover {
+            cursor: pointer;
+        }
+
+        /* ========== 响应式 ========== */
+        @media screen and (max-width: 900px) {
+            .main-container {
+                flex-direction: column;
+            }
+            .left-panel, .right-panel {
+                width: 100%;
+                flex: none;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body onload="init()">
+    <div class="main-container">
+        <!-- ========== 左侧操作与日志面板 ========== -->
+        <div class="left-panel">
+            <h1>维吉尼亚密码</h1>
+
+            <div class="form-group">
+                <label for="text">输入文本（明文/密文）:</label><br>
+                <input type="text" id="text" placeholder="输入明文或密文">
+            </div>
+
+            <div class="form-group">
+                <label for="key">密钥:</label><br>
+                <input type="text" id="key" placeholder="输入密钥">
+            </div>
+
+            <div class="form-group">
+                <label>模式:</label><br>
+                <label><input type="radio" name="mode" value="encrypt" checked> 加密</label>
+                <label><input type="radio" name="mode" value="decrypt"> 解密</label>
+            </div>
+
+            <div class="form-group">
+                <input type="checkbox" id="keepSymbols" />
+                <label for="keepSymbols">保留非字母字符</label>
+            </div>
+
+            <div class="button-group">
+                <button onclick="processAll()">全部处理</button>
+                <button onclick="processNext()">下一步</button>
+                <button onclick="resetProcess()">重置</button>
+            </div>
+
+            <div class="form-group">
+                <label for="result">结果:</label><br>
+                <textarea id="result" readonly></textarea>
+            </div>
+
+            <label for="logArea">日志:</label>
+            <textarea id="logArea" readonly></textarea>
+        </div>
+
+        <!-- ========== 右侧表格面板 ========== -->
+        <div class="right-panel">
+            <h1>字母表</h1>
+            <div class="table-container">
+                <table id="vigenereTable"></table>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    let currentIndex = 0;       // 分步处理时，当前字符索引
+    let textGlobal = "";        // 用户输入文本
+    let keyGlobal = "";         // 处理后的密钥
+    let modeGlobal = "encrypt";
+    let keepSymbols = false;    
+    let resultBuffer = [];      
+    let stepInfo = [];          
+
+    function init() {
+        createTable();
+    }
+
+    function createTable() {
+        const table = document.getElementById("vigenereTable");
+        table.innerHTML = ""; 
+
+        // 表头（第一行）
+        const headerRow = table.insertRow();
+        let cornerCell = headerRow.insertCell();
+        cornerCell.textContent = "";
+        cornerCell.style.backgroundColor = "#f2f2f2";
+
+        // 列标 A~Z
+        for (let j = 0; j < 26; j++) {
+            const headerCell = headerRow.insertCell();
+            headerCell.innerHTML = `
+                <div class="cell-content">
+                    ${ALPHABET[j]}
+                    <span class="tooltip">列标：${ALPHABET[j]}</span>
+                </div>`;
+            headerCell.style.backgroundColor = "#f2f2f2";
+        }
+
+        // 正文（26行）
+        for (let i = 0; i < 26; i++) {
+            const row = table.insertRow();
+            // 行标
+            const rowHeader = row.insertCell();
+            rowHeader.innerHTML = `
+                <div class="cell-content">
+                    ${ALPHABET[i]}
+                    <span class="tooltip">行标：${ALPHABET[i]}</span>
+                </div>`;
+            rowHeader.style.backgroundColor = "#f2f2f2";
+            rowHeader.style.fontWeight = "bold";
+
+            for (let j = 0; j < 26; j++) {
+                const cell = row.insertCell();
+                const cipherLetter = ALPHABET[(i + j) % 26];
+                cell.innerHTML = `
+                    <div class="cell-content">
+                        ${cipherLetter}
+                        <span class="tooltip">行：${ALPHABET[i]}, 列：${ALPHABET[j]} => ${cipherLetter}</span>
+                    </div>`;
+            }
+        }
+    }
+
+    function clearHighlights() {
+        const table = document.getElementById("vigenereTable");
+        for (let row of table.rows) {
+            for (let cell of row.cells) {
+                cell.classList.remove("highlight-row", "highlight-col", "highlight-intersection");
+            }
+        }
+    }
+
+    // rowIndex, colIndex 均从0开始 (A=0, B=1,...)
+    function highlight(rowIndex, colIndex) {
+        const table = document.getElementById("vigenereTable");
+        let dataRow = table.rows[rowIndex + 1]; 
+        // 高亮行
+        for (let c = 1; c < dataRow.cells.length; c++) {
+            dataRow.cells[c].classList.add("highlight-row");
+        }
+        // 高亮列
+        for (let r = 1; r < table.rows.length; r++) {
+            table.rows[r].cells[colIndex + 1].classList.add("highlight-col");
+        }
+        // 交集
+        table.rows[rowIndex + 1].cells[colIndex + 1].classList.add("highlight-intersection");
+    }
+
+    function resetProcess() {
+        document.getElementById("text").value = "";
+        document.getElementById("key").value = "";
+        document.getElementById("result").value = "";
+        document.getElementById("logArea").value = "";
+        currentIndex = 0;
+        resultBuffer = [];
+        stepInfo = [];
+        clearHighlights();
+    }
+
+    function prepare() {
+        modeGlobal = document.querySelector('input[name="mode"]:checked').value;
+        keepSymbols = document.getElementById("keepSymbols").checked;
+
+        let textInput = document.getElementById("text").value;
+        let keyInput = document.getElementById("key").value.toUpperCase().replace(/[^A-Z]/g, "");
+
+        // 如果勾选保留非字母字符，就仅做大小写转换（保留所有字符）
+        // 否则只保留 A-Z
+        if (keepSymbols) {
+            // 把所有英文字母转为大写，保留其余字符
+            textInput = textInput.replace(/[a-z]/g, m => m.toUpperCase());
+        } else {
+            textInput = textInput.toUpperCase().replace(/[^A-Z]/g, "");
+        }
+
+        textGlobal = textInput;
+        keyGlobal = keyInput;
+
+        resultBuffer = [];
+        stepInfo = [];
+        currentIndex = 0;
+        document.getElementById("result").value = "";
+        document.getElementById("logArea").value = "";
+        clearHighlights();
+
+        preprocessSteps();
+    }
+
+    // 预计算加解密步骤，简化日志信息
+    function preprocessSteps() {
+        let keyPos = 0;
+        for (let i = 0; i < textGlobal.length; i++) {
+            const currentChar = textGlobal[i];
+            if (!/[A-Z]/.test(currentChar)) {
+                // 非A-Z字符直接保留
+                stepInfo.push({
+                    textChar: currentChar,
+                    keyChar: "",
+                    rowIndex: -1,
+                    colIndex: -1,
+                    resultChar: currentChar,
+                    logText: `符号保留: ${currentChar}`
+                });
+                continue;
+            }
+
+            const keyChar = keyGlobal[keyPos % keyGlobal.length] || "A"; 
+            const row = ALPHABET.indexOf(keyChar);
+            const col = ALPHABET.indexOf(currentChar);
+
+            let resultChar = "";
+            let logText = "";
+
+            if (modeGlobal === "encrypt") {
+                const index = (row + col) % 26;
+                resultChar = ALPHABET[index];
+                // 简化日志：  H + K => R
+                logText = `${currentChar} + ${keyChar} => ${resultChar}`;
+            } else {
+                const index = (col - row + 26) % 26;
+                resultChar = ALPHABET[index];
+                // 简化日志： R - K => H
+                logText = `${currentChar} - ${keyChar} => ${resultChar}`;
+            }
+
+            stepInfo.push({
+                textChar: currentChar,
+                keyChar: keyChar,
+                rowIndex: row,
+                colIndex: col,
+                resultChar: resultChar,
+                logText: logText
+            });
+            keyPos++;
+        }
+    }
+
+    function processAll() {
+        prepare();
+        for (let i = currentIndex; i < stepInfo.length; i++) {
+            applyStep(i);
+        }
+        currentIndex = stepInfo.length;
+        document.getElementById("result").value = resultBuffer.join("");
+    }
+
+    function processNext() {
+        if (currentIndex === 0 && stepInfo.length === 0) {
+            prepare();
+        }
+        if (currentIndex < stepInfo.length) {
+            applyStep(currentIndex);
+            currentIndex++;
+            document.getElementById("result").value = resultBuffer.join("");
+        }
+    }
+
+    function applyStep(i) {
+        const step = stepInfo[i];
+        const logArea = document.getElementById("logArea");
+
+        resultBuffer.push(step.resultChar);
+
+        // 若是 A-Z 字母，执行高亮
+        if (step.rowIndex >= 0 && step.colIndex >= 0) {
+            clearHighlights();
+            if (modeGlobal === "encrypt") {
+                highlight(step.rowIndex, step.colIndex);
+            } else {
+                // 解密时交点用结果字符索引
+                const decryptedCol = ALPHABET.indexOf(step.resultChar);
+                highlight(step.rowIndex, decryptedCol);
+            }
+        }
+
+        // 写入简化日志
+        logArea.value += `[${i+1}/${stepInfo.length}] ${step.logText}\n`;
+        logArea.scrollTop = logArea.scrollHeight;
+    }
+</script>
+</body>
+</html>
